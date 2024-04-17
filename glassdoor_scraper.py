@@ -1,22 +1,29 @@
 import requests
+from bs4 import BeautifulSoup
 import csv
 import time
 from selenium import webdriver
 from selenium.webdriver import Keys
+import pandas as pd
 from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
+from bs4 import BeautifulSoup
 from selenium.common.exceptions import ElementClickInterceptedException
 from selenium.common.exceptions import NoSuchElementException
+
+import requests
 
 def scrape_glassdoor_jobs(job_title,location):
         job_data = []
         driver = webdriver.Chrome()
-        driver.get("https://www.glassdoor.com/Job/index.htm")
+        driver.get("https://www.glassdoor.co.in/Job/index.htm")
         driver.maximize_window()
+        get_source = driver.page_source
+        soup = BeautifulSoup(get_source, "html.parser")
         search = driver.find_element(By.CSS_SELECTOR, '[class="Autocomplete_autocompleteInput__Ngcdi Autocomplete_roundLeftBorder__NBhQ9"]')
         loc=driver.find_element(By.CSS_SELECTOR,'[class="Autocomplete_autocompleteInput__Ngcdi Autocomplete_roundRightBorder__OybBh"]')
         search.send_keys(job_title)
@@ -83,8 +90,9 @@ def save_to_csv(job_data, filename):
                         writer.writerow(job)
 
 # Example usage:
-job_title = "Data Scientist"
-location = "New York, United States"
+job_title = "data scientist"
+location = "united states"
+num_pages = 3  # Number of pages to scrape
 filename = "glassdoor_jobs.csv"
 
 job_data = scrape_glassdoor_jobs(job_title,location)
