@@ -1,5 +1,5 @@
 # Glassdoor Job Scrapper
-This project provides a tool for scraping job listings from Glassdoor using Python and Selenium. It automates the process of fetching job data including titles, companies, locations, and salaries, making it easier to analyze the job market or to find job opportunities automatically.
+This project provides a tool for scraping job listings from Glassdoor using Python and Selenium for web browsing and BeautifulSoup for parsing HTML. It automates the process of fetching job data including titles, companies, locations, and salaries, making it easier to analyze the job market or to find job opportunities automatically.
 
 <img src="https://github.com/SejalKankriya/glassdoor-job-scrapper/assets/43418191/45ddf83b-eed1-4c9f-97dc-1d5b64401b6c" width="60%" height="60%">
 
