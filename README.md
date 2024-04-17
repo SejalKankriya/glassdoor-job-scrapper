@@ -43,15 +43,12 @@ Edit the main() function in glassdoor_scraper.py to specify different job titles
 
 ```bash
 def main():
-    job_title = "Data Scientist"
-    location = "New York, United States"
-    filename = "glassdoor_jobs.csv"
     driver = setup_driver()
     try:
-        login_to_glassdoor(driver, job_title, location)
+        login_to_glassdoor(driver, "Data Scientist", "New York, United States")
         load_more_jobs(driver)
         job_data = scrape_jobs(driver)
-        save_to_csv(job_data, filename)
+        save_to_csv(job_data, "glassdoor_jobs.csv")
     finally:
         driver.quit()
 ```
