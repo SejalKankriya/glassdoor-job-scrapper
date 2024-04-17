@@ -1,99 +1,87 @@
-import requests
-from bs4 import BeautifulSoup
 import csv
 import time
 from selenium import webdriver
-from selenium.webdriver import Keys
-import pandas as pd
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.common.action_chains import ActionChains
-from bs4 import BeautifulSoup
-from selenium.common.exceptions import ElementClickInterceptedException
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
-import requests
+def setup_driver():
+    """Setup the Chrome WebDriver."""
+    driver = webdriver.Chrome(ChromeDriverManager().install())
+    driver.get("https://www.glassdoor.com/Job/index.htm")
+    driver.maximize_window()
+    return driver
 
-def scrape_glassdoor_jobs(job_title,location):
-        job_data = []
-        driver = webdriver.Chrome()
-        driver.get("https://www.glassdoor.co.in/Job/index.htm")
-        driver.maximize_window()
-        get_source = driver.page_source
-        soup = BeautifulSoup(get_source, "html.parser")
-        search = driver.find_element(By.CSS_SELECTOR, '[class="Autocomplete_autocompleteInput__Ngcdi Autocomplete_roundLeftBorder__NBhQ9"]')
-        loc=driver.find_element(By.CSS_SELECTOR,'[class="Autocomplete_autocompleteInput__Ngcdi Autocomplete_roundRightBorder__OybBh"]')
-        search.send_keys(job_title)
-        loc.send_keys(location)
-        search.send_keys(Keys.ENTER)
-        time.sleep(5)
+def login_to_glassdoor(driver, job_title, location):
+    """Log into Glassdoor and perform initial job search."""
+    search = driver.find_element(By.CSS_SELECTOR, '[class="Autocomplete_autocompleteInput__Ngcdi Autocomplete_roundLeftBorder__NBhQ9"]')
+    loc = driver.find_element(By.CSS_SELECTOR, '[class="Autocomplete_autocompleteInput__Ngcdi Autocomplete_roundRightBorder__OybBh"]')
+    search.send_keys(job_title)
+    loc.send_keys(location)
+    search.send_keys(Keys.ENTER)
+    time.sleep(5)  # Wait for results to load
 
-        button = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-test="load-more"]')))
-        button.click()
+def load_more_jobs(driver, num_clicks=10):
+    """Load more jobs by clicking the 'Load More' button multiple times."""
+    for _ in range(num_clicks):
+        try:
+            button = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-test="load-more"]')))
+            button.click()
+            time.sleep(5)  # Wait for more jobs to load
+        except TimeoutException:
+            print("Load more button not found or not clickable.")
+            break
 
-        close_button = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.CLASS_NAME, "CloseButton"))
-        )
-        close_button.click()
+def scrape_jobs(driver):
+    """Scrape job data from the page."""
+    job_data = []
+    job_listings = driver.find_elements(By.CSS_SELECTOR, '[class="JobsList_jobListItem__wjTHv"]')
+    for job in job_listings:
+        job_data.append(extract_job_data(job))
+    return job_data
 
-        time.sleep(2)
-
-        for i in range(10):
-                 WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-test="load-more"]'))).click()
-                 time.sleep(5)
-
-
-
-        time.sleep(4)
-        job_listings = driver.find_elements(By.CSS_SELECTOR, '[class="JobsList_jobListItem__wjTHv"]')
-
-        for job in job_listings:
-                job_title_elem = job.find_element(By.CSS_SELECTOR, '[class="JobCard_jobTitle___7I6y"]')
-
-                company_elem = job.find_element(By.CSS_SELECTOR, '[class="EmployerProfile_compactEmployerName__LE242"]')
-
-                location_elem = job.find_element(By.CSS_SELECTOR, '[class="JobCard_location__rCz3x"]')
-
-                link=job.find_element(By.CSS_SELECTOR,'[class="JobCard_trackingLink__GrRYn"]')
-                applly=link.get_attribute("href")
-
-                job_title = job_title_elem.text.strip() if job_title_elem else "N/A"
-                company = company_elem.text.strip() if company_elem else "N/A"
-                location = location_elem.text.strip() if location_elem else "N/A"
-
-                #job_description = job_description_elem.text.strip() if job_description_elem else "N/A"
-                try:
-                        salary_elem = job.find_element(By.CLASS_NAME, "JobCard_salaryEstimate__arV5J")
-                        salary = salary_elem.text.strip().split(" (")[0]
-                except NoSuchElementException:
-                        salary = "N/A"
-                job_data.append({
-                        "Job Title": job_title,
-                        "Company": company,
-                        "Location": location,
-                        "Salary": salary,
-                        "Apply Link": applly,
-                        #"Job Description": job_description_elem
-                })
-        return job_data
-
+def extract_job_data(job):
+    """Extract data from a single job listing."""
+    try:
+        job_title = job.find_element(By.CSS_SELECTOR, '[class="JobCard_jobTitle___7I6y"]').text.strip()
+        company = job.find_element(By.CSS_SELECTOR, '[class="EmployerProfile_compactEmployerName__LE242"]').text.strip()
+        location = job.find_element(By.CSS_SELECTOR, '[class="JobCard_location__rCz3x"]').text.strip()
+        apply_link = job.find_element(By.CSS_SELECTOR, '[class="JobCard_trackingLink__GrRYn"]').get_attribute("href")
+        salary = job.find_element(By.CLASS_NAME, "JobCard_salaryEstimate__arV5J").text.strip().split(" (")[0]
+    except NoSuchElementException:
+        salary = "N/A"  # Default to N/A if no salary info is found
+    return {
+        "Job Title": job_title,
+        "Company": company,
+        "Location": location,
+        "Salary": salary,
+        "Apply Link": apply_link,
+    }
 
 def save_to_csv(job_data, filename):
-        with open(filename, "w", newline="", encoding="utf-8") as csvfile:
-                fieldnames = ["Job Title", "Company", "Location", "Salary", "Apply Link"]
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                writer.writeheader()
-                for job in job_data:
-                        writer.writerow(job)
+    """Save the scraped job data to a CSV file."""
+    with open(filename, "w", newline='', encoding='utf-8') as file:
+        fieldnames = ["Job Title", "Company", "Location", "Salary", "Apply Link"]
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        for job in job_data:
+            writer.writerow(job)
 
-# Example usage:
-job_title = "data scientist"
-location = "united states"
-num_pages = 3  # Number of pages to scrape
-filename = "glassdoor_jobs.csv"
+def main():
+    job_title = "data scientist"
+    location = "united states"
+    filename = "glassdoor_jobs.csv"
+    driver = setup_driver()
+    try:
+        login_to_glassdoor(driver, job_title, location)
+        load_more_jobs(driver)
+        job_data = scrape_jobs(driver)
+        save_to_csv(job_data, filename)
+    finally:
+        driver.quit()
 
-job_data = scrape_glassdoor_jobs(job_title,location)
-save_to_csv(job_data, filename)
+if __name__ == "__main__":
+    main()
