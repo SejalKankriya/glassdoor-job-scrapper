@@ -14,6 +14,7 @@ import requests
 import csv
 import time
 
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36"
 def setup_driver():
     """Setup the Chrome WebDriver."""
     chrome_options = Options()
@@ -22,27 +23,20 @@ def setup_driver():
     chrome_options.add_argument("--disable-gpu") # Disable GPU hardware acceleration
     chrome_options.add_argument("--window-size=1920x1080")
     chrome_options.add_argument("--disable-dev-shm-usage") # Overcome limited resource problems
-    chrome_options.add_argument(
-        'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36')
+    chrome_options.add_argument(f'user-agent={USER_AGENT}')
 
     driver = webdriver.Chrome(options=chrome_options)
     driver.get("https://www.glassdoor.com/Job/index.htm")
-    # driver.maximize_window()
+
     return driver
 
 def handle_popups_if_present(driver):
     """Closes the sign-up/login popup if it appears."""
     try:
-        close_button = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable((By.CLASS_NAME, "CloseButton")),
-            message="Checking for pop-up close button."
-        )
-        close_button.click()
+        WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.CLASS_NAME, "CloseButton"))).click()
         print("Popup closed.")
     except TimeoutException:
-        print("No popup appeared within the wait time.")
-    except NoSuchElementException:
-        print("No close button found for the popup.")
+        print("No popup was found.")
 
 def login_to_glassdoor(driver, job_title, location):
     """Log into Glassdoor and perform initial job search."""
@@ -77,15 +71,9 @@ def load_more_jobs(driver, num_clicks=10):
 def scrape_jobs(driver):
     """Scrape job data from the page."""
     soup = BeautifulSoup(driver.page_source, 'html.parser')
-    job_listings = soup.find_all('li', class_='JobsList_jobListItem__wjTHv')
-    job_data = []
+    jobs = soup.find_all('li', class_='JobsList_jobListItem__wjTHv')
+    return [extract_job_data(job) for job in jobs if job]
 
-    for job_elem in job_listings:
-        job_details = extract_job_data(job_elem)
-        if job_details:
-            job_data.append(job_details)
-
-    return job_data
 
 def extract_job_data(job, base_url="https://www.glassdoor.com"):
     """Extract data from a single job listing using BeautifulSoup."""
